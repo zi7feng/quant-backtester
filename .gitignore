@@ -1,0 +1,74 @@
+# ============================
+# Python build / runtime files
+# ============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+build/
+dist/
+.eggs/
+*.manifest
+*.spec
+
+# ============================
+# Environment and config
+# ============================
+.env
+.env.*
+!.env.example          # keep example template only
+
+# ============================
+# IDE / Editor
+# ============================
+.vscode/
+.idea/
+*.iml
+
+# ============================
+# Logs and caches
+# ============================
+*.log
+logs/
+*.tmp
+*.bak
+.DS_Store
+.cache/
+__cache__/
+.ipynb_checkpoints/
+
+# ============================
+# Data and backtest outputs
+# ============================
+data/
+datasets/
+backtest_results/
+reports/
+*.csv
+*.db
+*.sqlite
+*.h5
+*.parquet
+*.pkl
+
+# ============================
+# Virtual environment
+# ============================
+venv/
+env/
+.venv/
+ENV/
+
+# ============================
+# Jupyter notebooks checkpoints
+# ============================
+.ipynb_checkpoints/
+
+# ============================
+# OS-specific files
+# ============================
+Thumbs.db
+.DS_Store

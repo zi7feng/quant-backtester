@@ -38,7 +38,12 @@ class Broker:
             fee = exec_price * qty * self.fee_rate
             return max(fee, self.min_fee)
         elif self.fee_type == "fixed":
-            return self.fixed_fee
+            trade_value = exec_price * qty
+            per_share_fee = qty * self.fixed_fee
+            min_fee = 1.00
+            max_fee = trade_value * 0.01
+            fee = max(min_fee, min(per_share_fee, max_fee))
+            return fee
         else:
             raise ValueError(f"Invalid fee_type '{self.fee_type}' — must be 'rate' or 'fixed'.")
 

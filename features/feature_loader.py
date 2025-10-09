@@ -25,24 +25,55 @@ from features.indicators.mean_reversion import zscore
 from features.feature_utils import get_max_window
 
 
-# -----------------------------
-# Raw data loader
-# -----------------------------
-def load_raw_data(symbol: str, limit: int = None) -> pd.DataFrame:
-    """Load OHLCV candles from PostgreSQL."""
+def load_raw_data(symbol: str, start_date=None, end_date=None, limit: int = None) -> pd.DataFrame:
+    """
+    Load OHLCV candles for a given symbol from the database.
+    Supports both time range queries (start_date/end_date)
+    and recent data queries (limit).
+
+    Parameters
+    ----------
+    symbol : str
+        Asset symbol, e.g. "SPY.US"
+    start_date : datetime or None
+        Start datetime (tz-aware, e.g. America/New_York). If None, no lower bound is applied.
+    end_date : datetime or None
+        End datetime (tz-aware). If None, no upper bound is applied.
+    limit : int or None
+        Number of most recent records to load when no time range is specified.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indexed by datetime, containing columns:
+        open, high, low, close, volume
+    """
     session = SessionLocal()
     try:
-        query = (
-            session.query(Candle)
-            .filter(Candle.symbol == symbol)
-            .order_by(Candle.datetime.asc())
-        )
-        if limit:
-            query = query.limit(limit)
+        query = session.query(Candle).filter(Candle.symbol == symbol)
+
+        # If a specific time range is provided, apply it directly (preferred for historical backtests)
+        if start_date:
+            query = query.filter(Candle.datetime >= start_date)
+        if end_date:
+            query = query.filter(Candle.datetime <= end_date)
+
+        # If no explicit time range, pull the latest candles using LIMIT
+        if not start_date and not end_date:
+            query = query.order_by(Candle.datetime.desc())
+            if limit:
+                query = query.limit(limit)
+        else:
+            query = query.order_by(Candle.datetime.asc())
+
         rows = query.all()
     finally:
         session.close()
 
+    if not rows:
+        raise ValueError(f"No data found for {symbol} in the specified range.")
+
+    # Convert to DataFrame
     df = pd.DataFrame(
         [
             {
@@ -57,11 +88,10 @@ def load_raw_data(symbol: str, limit: int = None) -> pd.DataFrame:
         ]
     )
 
-    if df.empty:
-        raise ValueError(f"No data found for {symbol}")
-
+    # Set datetime index for downstream indicator computation
     df.set_index("datetime", inplace=True)
     return df
+
 
 
 # -----------------------------
@@ -122,9 +152,11 @@ def compute_indicators(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 # -----------------------------
 # Main loader
 # -----------------------------
-def load_features(symbol: str, config=None, buffer: float = 0.2, limit: int = None) -> pd.DataFrame:
+def load_features(symbol: str, config=None, buffer: float = 0.2,
+                  start_date=None, end_date=None, limit: int = None) -> pd.DataFrame:
     """
-    Load OHLCV data and compute all indicators in one pass.
+    Unified entry point for feature (indicator) computation.
+    Supports both 'date range mode' and 'limit mode'.
 
     Parameters
     ----------
@@ -134,15 +166,11 @@ def load_features(symbol: str, config=None, buffer: float = 0.2, limit: int = No
         Indicator configuration object.
     buffer : float
         Fractional buffer for lookback extension (e.g. 0.2 = +20%)
+    start_date, end_date : datetime or None
+        Date range mode (historical backtest)
     limit : int or None
-        Optional manual override for data limit.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with all OHLCV + computed indicators.
+        Number of recent bars (realtime or short-term analysis)
     """
-
     # Convert config to dict if necessary
     if hasattr(config, "to_dict"):
         config = config.to_dict()
@@ -152,15 +180,17 @@ def load_features(symbol: str, config=None, buffer: float = 0.2, limit: int = No
     max_window = get_max_window(cfg)
     total_window = int(max_window * (1 + buffer))
 
-    # If no manual limit, use auto-calculated
-    if limit is None:
-        limit = total_window
-    print(f"Loading {symbol}: max window={max_window}, buffer={buffer*100:.0f}%, total={limit} bars")
-
-    # Load raw data once
-    df = load_raw_data(symbol, limit=limit)
+    # Choose loading mode
+    if start_date or end_date:
+        print(f"Loading {symbol}: using date range [{start_date}, {end_date}]")
+        df = load_raw_data(symbol, start_date=start_date, end_date=end_date)
+    else:
+        # Use limit-based mode
+        if limit is None:
+            limit = total_window
+        print(f"Loading {symbol}: max window={max_window}, buffer={buffer*100:.0f}%, total={limit} bars")
+        df = load_raw_data(symbol, limit=limit)
 
     # Compute all features
     df_features = compute_indicators(df, cfg)
-
     return df_features

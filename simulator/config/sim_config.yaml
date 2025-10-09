@@ -1,0 +1,23 @@
+account:
+  initial_cash: 100000
+  currency: "USD"
+  allow_short: false
+
+broker:
+  fee_type: "fixed"         # "rate" or "fixed"
+  fee_rate: 0.001          # if fee_type=rate
+  fixed_fee: 0.0035           # if fee_type=fixed
+  min_fee: 1.0             # if fee_type=rate
+  slippage: 0.0005
+
+env:
+  feed_delay_minutes: 2
+  latency_ms: 0             # network latency (ms)
+  volatility_factor: 0.1      # trade price volatility factor
+  random_seed: 37             # used for reproducibility
+
+symbols:
+  - "BMNR.US"
+
+strategy:
+  name: "MomentumStrategy"

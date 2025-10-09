@@ -45,12 +45,18 @@ class Simulator:
 
         self.start_date = _to_dt(start_date)
         self.end_date = _to_dt(end_date)
+        if self.end_date <= self.start_date:
+            raise ValueError("end_date must be after start_date")
         self.days_per_chunk = days_per_chunk
 
         # === General settings ===
-        self.symbols = cfg.get("symbols", ["SPY.US"])
+        if "symbols" not in cfg:
+            raise KeyError("Configuration must include 'symbols' key")
+        self.symbols = cfg["symbols"]
         self.strategy_name = cfg.get("strategy", {}).get("name", "DemoStrategy")
         self.feed_delay = cfg["env"].get("feed_delay_minutes", 1)
+        if self.feed_delay <= 0:
+            raise ValueError("feed_delay must be > 0")
         self.latency_ms = cfg["env"].get("latency_ms", 200)
         self.volatility_factor = cfg["env"].get("volatility_factor", 0.1)
         self.random_seed = cfg["env"].get("random_seed", 42)
@@ -96,7 +102,7 @@ class Simulator:
             slippage=bro_cfg["slippage"],
         )
 
-        strategy = strategy_cls(symbol)
+        strategy = strategy_cls(symbol, config=self.cfg)
         trades = []
         t_init_end = time.perf_counter()
 
@@ -136,7 +142,6 @@ class Simulator:
                 visible_full = df_today.iloc[: i_today - delay + 1]
                 recent = df_today.iloc[i_today - delay + 1:i_today + 1].copy()
                 recent[["high", "low", "close", "volume"]] = np.nan
-                recent["close"] = recent["open"]
                 augmented = pd.concat([visible_full, recent])
                 t2 = time.perf_counter()
                 t_window_sum += (t2 - t1)

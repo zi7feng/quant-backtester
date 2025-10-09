@@ -1,3 +1,4 @@
+# simulator/config/sim_config.py
 import yaml
 import copy
 from pathlib import Path
